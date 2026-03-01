@@ -11,22 +11,23 @@ import pytest
 
 SAMPLE_SCHEDULE_HTML_ROW = """
 <div class="nestedscheduleGridRow">
-    <span id="lblMonthDay" class="lbl">Mar 1</span>
-    <span id="lblTime" class="lbl">11:30 AM</span>
-    <a id="hlOpponentName" href="/team/123">Expos Baseball 10U</a>
-    <span id="lblField" class="lbl">Field 3</span>
-    <a id="hlBallpark" href="/park/1">Bayer Park</a>
+    <span id="ctl00_lblMonthDay" class="no-wrap fw-bold">Mar 1</span>
+    <div class="col-5 col-lg-4">
+        <span>11:30 AM</span>
+    </div>
+    <a id="ctl00_hlOpponentName" href="/team/123">Expos Baseball 10U</a>
+    <span id="ctl00_lblField" class="lbl">Field 3 @ </span>
+    <a id="ctl00_hlBallpark" href="/park/1">Bayer Park</a>
 </div>
 """
 
 SAMPLE_PAST_GAME_ROW = """
 <div class="nestedscheduleGridRow">
-    <span id="lblMonthDay" class="lbl">Feb 28</span>
-    <span id="lblTime" class="lbl">N/A</span>
-    <a id="hlOpponentName" href="/team/456">Fairfield Ducks</a>
-    <span id="lblField" class="lbl">3</span>
-    <a id="hlBallpark" href="/park/1">@ Bayer Park</a>
-    <span id="lblGameScore" class="lbl">19-7,</span>
+    <span id="ctl00_lblMonthDay" class="no-wrap fw-bold">Feb 28</span>
+    <a id="ctl00_hlOpponentName" href="/team/456">Fairfield Ducks</a>
+    <span id="ctl00_lblField" class="lbl">3</span>
+    <a id="ctl00_hlBallpark" href="/park/1">@ Bayer Park</a>
+    <span id="ctl00_lblGameScore" class="lbl">19-7,</span>
     <span style="font-weight:bold;">L, </span>
 </div>
 """
