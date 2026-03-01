@@ -323,16 +323,16 @@ def main():
     parser.add_argument("--player", type=str, default=DEFAULT_PLAYER_NAME,
                         help="Player name for emails.")
     parser.add_argument("--to", type=str, default=None,
-                        help="Recipient email (defaults to EMAIL_ADDRESS from .env).")
+                        help="Recipient email(s), comma-separated (defaults to TO_EMAILS or EMAIL_ADDRESS from .env).")
     parser.add_argument("--dry-run", action="store_true",
                         help="Log changes but do not send email.")
     parser.add_argument("--log-hours", type=float, default=LOG_RETENTION_HOURS,
                         help="Hours of log history to keep.")
     args = parser.parse_args()
 
-    to_addr = args.to or os.getenv("EMAIL_ADDRESS")
+    to_addr = args.to or os.getenv("TO_EMAILS") or os.getenv("EMAIL_ADDRESS")
     if not to_addr:
-        print("ERROR: No recipient email. Set EMAIL_ADDRESS in .env or use --to.")
+        print("ERROR: No recipient email. Set TO_EMAILS or EMAIL_ADDRESS in .env or use --to.")
         sys.exit(1)
 
     daemon = ScheduleDaemon(

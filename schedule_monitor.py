@@ -44,6 +44,9 @@ from config import (
     SMTP_HOST,
     SMTP_PORT,
     SMTP_TIMEOUT,
+    DEFAULT_TEAM,
+    DEFAULT_PLAYER_ID,
+    DEFAULT_PLAYER_NAME,
 )
 from perfect_game_scraper import fetch_team_schedule
 
@@ -326,22 +329,30 @@ def build_alert_email(new_games, changed_games, player_name="Your Player Name"):
 
 
 def send_alert(to_addr, subject, html_body):
-    """Send an alert email via Gmail SMTP."""
+    """Send an alert email via Gmail SMTP.
+
+    to_addr may be a single address or a comma-separated string of addresses.
+    """
     if not EMAIL_ADDRESS or not EMAIL_APP_PASSWORD:
         log("ERROR: Email credentials not configured in .env")
+        return False
+
+    recipients = [a.strip() for a in to_addr.split(",") if a.strip()]
+    if not recipients:
+        log("ERROR: No valid recipient addresses.")
         return False
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = EMAIL_ADDRESS
-    msg["To"] = to_addr
+    msg["To"] = ", ".join(recipients)
     msg.attach(MIMEText(html_body, "html"))
 
     try:
         with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT) as server:
             server.login(EMAIL_ADDRESS, EMAIL_APP_PASSWORD)
-            server.sendmail(EMAIL_ADDRESS, [to_addr], msg.as_string())
-        log(f"✅ Alert email sent to {to_addr}")
+            server.sendmail(EMAIL_ADDRESS, recipients, msg.as_string())
+        log(f"✅ Alert email sent to {', '.join(recipients)}")
         return True
     except smtplib.SMTPResponseException as e:
         # Code 235 = auth OK; treat 2xx as success
@@ -454,20 +465,20 @@ def run_check(team, player_id, player_name, to_addr, force=False, log_hours=LOG_
 def main():
     parser = argparse.ArgumentParser(description="Monitor PG schedule for changes.")
     parser.add_argument(
-        "--team", type=str, default="Your Team Name",
+        "--team", type=str, default=DEFAULT_TEAM,
         help="Team name to search for on Perfect Game."
     )
     parser.add_argument(
-        "--player", type=str, default="Your Player Name",
+        "--player", type=str, default=DEFAULT_PLAYER_NAME,
         help="Player name for the email subject."
     )
     parser.add_argument(
-        "--player-id", type=str, default="YOUR_PLAYER_ID",
+        "--player-id", type=str, default=DEFAULT_PLAYER_ID,
         help="Perfect Game Player ID to monitor."
     )
     parser.add_argument(
         "--to", type=str, default=None,
-        help="Recipient email (defaults to EMAIL_ADDRESS from .env)."
+        help="Recipient email(s), comma-separated (defaults to TO_EMAILS or EMAIL_ADDRESS from .env)."
     )
     parser.add_argument(
         "--force", action="store_true",
@@ -479,7 +490,7 @@ def main():
     )
     args = parser.parse_args()
 
-    to_addr = args.to or EMAIL_ADDRESS
+    to_addr = args.to or os.getenv("TO_EMAILS") or EMAIL_ADDRESS
     if not to_addr:
         log("ERROR: No recipient email configured.")
         return

@@ -62,8 +62,8 @@ SMTP_PORT = 465
 SMTP_TIMEOUT = 15
 
 # ---------------------------------------------------------------------------
-# Defaults
+# Defaults (set via .env — never hard-code personal data here)
 # ---------------------------------------------------------------------------
-DEFAULT_TEAM = "Your Team Name"
-DEFAULT_PLAYER_ID = "YOUR_PLAYER_ID"
-DEFAULT_PLAYER_NAME = "Your Player Name"
+DEFAULT_TEAM        = os.getenv("PLAYER_TEAM", "")
+DEFAULT_PLAYER_ID   = os.getenv("PLAYER_ID", "")
+DEFAULT_PLAYER_NAME = os.getenv("PLAYER_NAME", "")
