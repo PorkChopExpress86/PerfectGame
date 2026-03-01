@@ -48,8 +48,6 @@ def build_email_body(games, player_name="Your Player Name"):
         time = g.get("Time") or "TBD"
         opponent = g.get("Opponent") or "Unknown"
         location = g.get("Location", "TBD")
-        score = g.get("Score/Result", "N/A")
-        game_type = g.get("Type", "")
 
         rows += f"""
         <tr>
@@ -57,8 +55,6 @@ def build_email_body(games, player_name="Your Player Name"):
             <td style="padding:8px;border:1px solid #ddd;">{time}</td>
             <td style="padding:8px;border:1px solid #ddd;">{opponent}</td>
             <td style="padding:8px;border:1px solid #ddd;">{location}</td>
-            <td style="padding:8px;border:1px solid #ddd;">{score}</td>
-            <td style="padding:8px;border:1px solid #ddd;">{game_type}</td>
         </tr>"""
 
     html = f"""
@@ -73,8 +69,6 @@ def build_email_body(games, player_name="Your Player Name"):
                     <th style="padding:10px;border:1px solid #ddd;">Time</th>
                     <th style="padding:10px;border:1px solid #ddd;">Opponent</th>
                     <th style="padding:10px;border:1px solid #ddd;">Location</th>
-                    <th style="padding:10px;border:1px solid #ddd;">Score/Result</th>
-                    <th style="padding:10px;border:1px solid #ddd;">Type</th>
                 </tr>
             </thead>
             <tbody>
