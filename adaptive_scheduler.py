@@ -24,6 +24,11 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 os.chdir(SCRIPT_DIR)
 
+# Load .env before importing config so DEFAULT_TEAM / DEFAULT_PLAYER_ID / etc.
+# are populated when config.py is first executed.
+from dotenv import load_dotenv as _load_dotenv
+_load_dotenv(os.path.join(SCRIPT_DIR, ".env"))
+
 from config import (
     GAME_DAYS,
     INTERVAL_DEFAULT,
