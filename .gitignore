@@ -10,3 +10,4 @@ monitor.pid
 team_schedule.json
 team_url.txt
 player_*.json
+.pytest_cache/
