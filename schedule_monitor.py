@@ -242,82 +242,33 @@ def merge_into_schedule(existing, scraped):
 # Email
 # ---------------------------------------------------------------------------
 
-def build_alert_email(new_games, changed_games, player_name="Your Player Name"):
-    """Build an HTML email summarising schedule changes."""
-    sections = []
-
-    if new_games:
-        rows = ""
-        for g in new_games:
-            rows += f"""
+def build_alert_email(games, player_name="Your Player Name"):
+    """Build a simple HTML email listing the affected games (Date/Time/Opponent/Location)."""
+    rows = ""
+    for g in games:
+        rows += f"""
             <tr>
                 <td style="padding:8px;border:1px solid #ddd;">{g.get('Date', 'TBD')}</td>
                 <td style="padding:8px;border:1px solid #ddd;">{g.get('Time', 'TBD')}</td>
                 <td style="padding:8px;border:1px solid #ddd;">{g.get('Opponent', '?')}</td>
                 <td style="padding:8px;border:1px solid #ddd;">{g.get('Location', 'TBD')}</td>
-                <td style="padding:8px;border:1px solid #ddd;">{g.get('Type', '')}</td>
             </tr>"""
 
-        sections.append(f"""
-        <h3 style="color:#2e7d32;">🆕 New Game(s) Added</h3>
-        <table style="border-collapse:collapse;width:100%;max-width:700px;">
-            <thead>
-                <tr style="background-color:#2e7d32;color:white;">
-                    <th style="padding:10px;border:1px solid #ddd;">Date</th>
-                    <th style="padding:10px;border:1px solid #ddd;">Time</th>
-                    <th style="padding:10px;border:1px solid #ddd;">Opponent</th>
-                    <th style="padding:10px;border:1px solid #ddd;">Location</th>
-                    <th style="padding:10px;border:1px solid #ddd;">Type</th>
-                </tr>
-            </thead>
-            <tbody>{rows}</tbody>
-        </table>""")
-
-    if changed_games:
-        rows = ""
-        for c in changed_games:
-            old, new, fields = c["old"], c["new"], c["fields"]
-
-            def diff_cell(field, old_val, new_val):
-                if field in fields:
-                    return f"{old_val or 'N/A'} → {new_val or 'N/A'}"
-                return new_val or "N/A"
-
-            time_str   = diff_cell("Time",     old.get("Time"),     new.get("Time"))
-            loc_str    = diff_cell("Location",  old.get("Location"), new.get("Location"))
-            result_str = diff_cell("Result",    old.get("Score/Result"), new.get("Score/Result"))
-            opp_str    = diff_cell("Opponent",  old.get("Opponent"), new.get("Opponent"))
-
-            rows += f"""
-            <tr>
-                <td style="padding:8px;border:1px solid #ddd;">{new.get('Date', 'TBD')}</td>
-                <td style="padding:8px;border:1px solid #ddd;">{opp_str}</td>
-                <td style="padding:8px;border:1px solid #ddd;color:#d84315;"><b>{time_str}</b></td>
-                <td style="padding:8px;border:1px solid #ddd;color:#d84315;"><b>{loc_str}</b></td>
-                <td style="padding:8px;border:1px solid #ddd;color:#d84315;"><b>{result_str}</b></td>
-            </tr>"""
-
-        sections.append(f"""
-        <h3 style="color:#d84315;">🔄 Schedule Change(s)</h3>
-        <table style="border-collapse:collapse;width:100%;max-width:700px;">
-            <thead>
-                <tr style="background-color:#d84315;color:white;">
-                    <th style="padding:10px;border:1px solid #ddd;">Date</th>
-                    <th style="padding:10px;border:1px solid #ddd;">Opponent</th>
-                    <th style="padding:10px;border:1px solid #ddd;">Time</th>
-                    <th style="padding:10px;border:1px solid #ddd;">Location</th>
-                    <th style="padding:10px;border:1px solid #ddd;">Score/Status</th>
-                </tr>
-            </thead>
-            <tbody>{rows}</tbody>
-        </table>""")
-
-    body = "\n".join(sections)
     html = f"""
     <html>
     <body style="font-family:Arial,sans-serif;color:#333;">
         <h2 style="color:#1a3a5c;">⚾ Schedule Alert for {player_name}</h2>
-        {body}
+        <table style="border-collapse:collapse;width:100%;max-width:700px;">
+            <thead>
+                <tr style="background-color:#1a3a5c;color:white;">
+                    <th style="padding:10px;border:1px solid #ddd;">Date</th>
+                    <th style="padding:10px;border:1px solid #ddd;">Time</th>
+                    <th style="padding:10px;border:1px solid #ddd;">Opponent</th>
+                    <th style="padding:10px;border:1px solid #ddd;">Location</th>
+                </tr>
+            </thead>
+            <tbody>{rows}</tbody>
+        </table>
         <br>
         <p style="font-size:12px;color:#888;">
             Checked at {datetime.now().strftime('%b %d, %Y %I:%M %p')} — Perfect Game Monitor
@@ -443,14 +394,9 @@ def run_check(team, player_id, player_name, to_addr, force=False, log_hours=LOG_
         else:
             log("No changes — no email sent.")
     else:
-        change_parts = []
-        if new_entries:
-            change_parts.append(f"{len(new_entries)} new game(s)")
-        if changed_entries:
-            change_parts.append(f"{len(changed_entries)} change(s)")
-        summary = ", ".join(change_parts)
-        subject = f"⚾ {player_name} - Schedule Update: {summary}"
-        html    = build_alert_email(new_entries, changed_entries, player_name=player_name)
+        all_games = new_entries + [c["new"] for c in changed_entries]
+        subject   = f"⚾ {player_name} - Schedule Update"
+        html      = build_alert_email(all_games, player_name=player_name)
         send_alert(to_addr, subject, html)
 
     elapsed = (datetime.now() - run_start).total_seconds()
