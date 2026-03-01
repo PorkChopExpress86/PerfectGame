@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+node_modules/
+*.pyc
+*.html
+.last_schedule_state.json
+monitor.log
+monitor.pid
+team_schedule.json
+team_url.txt
+player_*.json

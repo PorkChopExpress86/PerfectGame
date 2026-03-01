@@ -1,0 +1,25 @@
+[Unit]
+Description=PerfectGame Schedule Monitor Daemon
+Documentation=https://github.com/YOUR_USERNAME/PerfectGame
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# NOTE: This file is a template. Run setup.sh to install the service with
+# the correct paths resolved for your system.
+Type=simple
+User=%i
+WorkingDirectory=__INSTALL_DIR__
+ExecStart=__INSTALL_DIR__/.venv/bin/python3 __INSTALL_DIR__/adaptive_scheduler.py
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=30
+
+# Service starts on boot via loginctl enable-linger.
+# The daemon adapts polling — faster on weekends near game time,
+# slower on weekdays.
+StandardOutput=append:__INSTALL_DIR__/monitor.log
+StandardError=append:__INSTALL_DIR__/monitor.log
+
+[Install]
+WantedBy=multi-user.target
