@@ -39,8 +39,11 @@ def parse_and_filter_schedule(html_content):
             continue
             
         # Extract Time (if upcoming)
-        time_match = re.search(r'lblTime"[^>]*>(.*?)</span>', row_html)
-        if time_match: 
+        # Perfect Game renders time as a bare <span>HH:MM AM/PM</span> (no ID).
+        # Fall back to the old lblTime id-based pattern for cached/test HTML.
+        time_match = re.search(r'<span[^>]*>\s*(\d{1,2}:\d{2}\s*[AP]M)\s*</span>', row_html, re.IGNORECASE) \
+                     or re.search(r'lblTime"[^>]*>(.*?)</span>', row_html)
+        if time_match:
             game['time'] = time_match.group(1).strip()
             
         # Extract Opponent Name
@@ -98,7 +101,7 @@ def parse_and_filter_schedule(html_content):
     for g in filtered:
         output.append({
             'Date': g.get('date_str'),
-            'Time': g.get('time') if g['type'] == 'Upcoming' else "N/A",
+            'Time': (g.get('time') or "TBD") if g['type'] == 'Upcoming' else "N/A",
             'Score/Result': g.get('status') if g['type'] == 'Past' else "N/A",
             'Opponent': g.get('opponent'),
             'Location': g.get('location'),
