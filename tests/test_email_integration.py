@@ -27,7 +27,7 @@ class TestBuildEmailBody:
         assert "<table" in html
 
     def test_full_schedule_with_past_games(self):
-        """Should include past game results."""
+        """Should include all games in the table."""
         games = [
             {"Date": "Feb 28", "Time": "N/A", "Opponent": "Ducks",
              "Location": "Field 3", "Score/Result": "Played (L 19-7)",
@@ -37,7 +37,7 @@ class TestBuildEmailBody:
         ]
         html = build_email_body(games)
         assert "Ducks" in html
-        assert "19-7" in html
+        assert "Expos" in html
 
     def test_empty_games_shows_message(self):
         """Should show 'no upcoming games' for empty list."""
@@ -69,31 +69,30 @@ class TestFilterUpcoming:
 class TestBuildAlertEmail:
     """Tests for schedule_monitor.build_alert_email()."""
 
-    def test_new_games_section(self):
-        """Alert email should have a 'New Game' section."""
-        new = [{"Date": "Mar 5", "Time": "2:00 PM", "Opponent": "Hawks",
-                "Location": "Field 1", "Type": "Upcoming"}]
-        html = build_alert_email(new, [])
-        assert "New Game" in html
+    def test_games_rendered_in_table(self):
+        """Alert email should render each game with Date/Time/Opponent/Location."""
+        games = [{"Date": "Mar 5", "Time": "2:00 PM", "Opponent": "Hawks",
+                  "Location": "Field 1", "Type": "Upcoming"}]
+        html = build_alert_email(games)
         assert "Hawks" in html
-
-    def test_changed_games_section(self):
-        """Alert email should show changes with old → new values."""
-        old = {"Date": "Mar 1", "Time": "11:30 AM", "Opponent": "Expos",
-               "Location": "Field 1", "Score/Result": "N/A"}
-        new = {"Date": "Mar 1", "Time": "2:00 PM", "Opponent": "Expos",
-               "Location": "Field 1", "Score/Result": "N/A"}
-        changed = [{"old": old, "new": new, "fields": ["Time"]}]
-        html = build_alert_email([], changed)
-        assert "Change" in html
-        assert "11:30 AM" in html
+        assert "Mar 5" in html
         assert "2:00 PM" in html
+        assert "Field 1" in html
 
-    def test_empty_changes_no_sections(self):
-        """No changes should produce minimal HTML with no table sections."""
-        html = build_alert_email([], [])
-        assert "New Game" not in html
-        assert "Change" not in html
+    def test_changed_game_current_values_shown(self):
+        """Alert email should show current (post-change) game details."""
+        game = {"Date": "Mar 1", "Time": "2:00 PM", "Opponent": "Expos",
+                "Location": "Field 1"}
+        html = build_alert_email([game])
+        assert "Expos" in html
+        assert "2:00 PM" in html
+        assert "→" not in html
+
+    def test_empty_games_no_rows(self):
+        """Empty game list should produce a table with no data rows."""
+        html = build_alert_email([])
+        assert "<table" in html
+        assert "<tbody></tbody>" in html or "<tbody>\n            </tbody>" in html or html.count("<tr") == 1
 
 
 class TestSendAlert:
