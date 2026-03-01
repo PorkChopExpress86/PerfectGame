@@ -44,9 +44,9 @@ def build_email_body(games, player_name="Your Player Name"):
 
     rows = ""
     for g in games:
-        date = g.get("Date", "TBD")
-        time = g.get("Time", "TBD")
-        opponent = g.get("Opponent", "Unknown")
+        date = g.get("Date") or "TBD"
+        time = g.get("Time") or "TBD"
+        opponent = g.get("Opponent") or "Unknown"
         location = g.get("Location", "TBD")
         score = g.get("Score/Result", "N/A")
         game_type = g.get("Type", "")
