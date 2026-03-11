@@ -158,11 +158,16 @@ def _request_with_retry(session, url, timeout=None):
     raise last_exc or RuntimeError(f"Failed to fetch {url} after {MAX_RETRIES} attempts")
 
 
-def fetch_team_schedule(team_name_filter="Your Team Name", player_id="YOUR_PLAYER_ID"):
+def fetch_team_schedule(team_name_filter="Your Team Name", player_id="YOUR_PLAYER_ID", extra_urls=None):
     """
     Fetches the team schedule using requests with rotating browser headers
     and human-like delays between requests.
     Navigates via the player profile to find the team link.
+
+    extra_urls : list[str] | str | None
+        Additional team schedule URLs to fetch and merge (e.g. a PGBA club
+        page that is not linked from the player profile).  Results are
+        deduplicated by (Date, Opponent) before being returned.
     """
     _log(f"Fetching schedule for player {player_id} via robust requests...")
 
@@ -216,6 +221,30 @@ def fetch_team_schedule(team_name_filter="Your Team Name", player_id="YOUR_PLAYE
         _log("Parsing schedule content...")
         games = parse_and_filter_schedule(sched_resp.text)
         _log(f"Successfully parsed {len(games)} games.")
+
+        # Also fetch any additional URLs (e.g. PGBA club page)
+        if extra_urls:
+            if isinstance(extra_urls, str):
+                extra_urls = [extra_urls]
+            seen_keys = {(g["Date"].strip(), g["Opponent"].strip()) for g in games}
+            for extra_url in extra_urls:
+                try:
+                    delay = random_delay()
+                    _log(f"  Waiting {delay:.1f}s before extra URL request...")
+                    session.headers.update(get_random_headers(referer=target_href))
+                    _log(f"GET {extra_url} (extra URL)")
+                    extra_resp = _request_with_retry(session, extra_url)
+                    _log("Parsing extra URL schedule content...")
+                    extra_games = parse_and_filter_schedule(extra_resp.text)
+                    _log(f"Successfully parsed {len(extra_games)} games from extra URL.")
+                    for g in extra_games:
+                        key = (g["Date"].strip(), g["Opponent"].strip())
+                        if key not in seen_keys:
+                            games.append(g)
+                            seen_keys.add(key)
+                except Exception as e:
+                    _log(f"Error fetching extra URL {extra_url}: {e}")
+
         return games
 
     except Exception as e:

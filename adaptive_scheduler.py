@@ -188,13 +188,14 @@ class ScheduleDaemon:
     """
 
     def __init__(self, team, player_id, player_name, to_addr, dry_run=False,
-                 log_hours=6):
+                 log_hours=6, extra_urls=None):
         self.team = team
         self.player_id = player_id
         self.player_name = player_name
         self.to_addr = to_addr
         self.dry_run = dry_run
         self.log_hours = log_hours
+        self.extra_urls = extra_urls or []
         self.current_interval = INTERVAL_DEFAULT
         self.scheduler = BlockingScheduler()
 
@@ -224,7 +225,8 @@ class ScheduleDaemon:
             self._log(f"Current interval: {self.current_interval} min")
 
             # Fetch
-            scraped = fetch_team_schedule(self.team, self.player_id)
+            scraped = fetch_team_schedule(self.team, self.player_id,
+                                           extra_urls=self.extra_urls or None)
             if not scraped:
                 self._log("No games returned — skipping merge.")
                 return
@@ -243,7 +245,8 @@ class ScheduleDaemon:
                     change_parts.append(f"{len(changed_entries)} change(s)")
                 summary = ", ".join(change_parts)
                 subject = f"⚾ {self.player_name} - Schedule Update: {summary}"
-                html = build_alert_email(new_entries, changed_entries,
+                changed_games = [c["new"] for c in changed_entries]
+                html = build_alert_email(new_entries + changed_games,
                                          player_name=self.player_name)
                 send_alert(self.to_addr, subject, html)
             elif new_entries or changed_entries:
@@ -258,10 +261,15 @@ class ScheduleDaemon:
                     f"Interval change: {self.current_interval} → {new_interval} min"
                 )
                 self.current_interval = new_interval
-                self.scheduler.reschedule_job(
-                    "poll_job",
-                    trigger=IntervalTrigger(minutes=new_interval),
-                )
+                try:
+                    self.scheduler.reschedule_job(
+                        "poll_job",
+                        trigger=IntervalTrigger(minutes=new_interval),
+                    )
+                except Exception:
+                    # Job not yet registered (startup run) — interval will be
+                    # applied when add_job() is called in start().
+                    pass
 
         except Exception as e:
             self._log(f"ERROR in poll cycle: {e}")
@@ -314,7 +322,7 @@ class ScheduleDaemon:
 
 def main():
     from dotenv import load_dotenv
-    from config import ENV_FILE, DEFAULT_TEAM, DEFAULT_PLAYER_ID, DEFAULT_PLAYER_NAME, LOG_RETENTION_HOURS
+    from config import ENV_FILE, DEFAULT_TEAM, DEFAULT_PLAYER_ID, DEFAULT_PLAYER_NAME, LOG_RETENTION_HOURS, DEFAULT_TEAM_URL
 
     load_dotenv(str(ENV_FILE))
 
@@ -333,12 +341,19 @@ def main():
                         help="Log changes but do not send email.")
     parser.add_argument("--log-hours", type=float, default=LOG_RETENTION_HOURS,
                         help="Hours of log history to keep.")
+    parser.add_argument("--extra-url", type=str, action="append", dest="extra_urls",
+                        help="Additional team schedule URL to scrape (can be repeated).")
     args = parser.parse_args()
 
     to_addr = args.to or os.getenv("TO_EMAILS") or os.getenv("EMAIL_ADDRESS")
     if not to_addr:
         print("ERROR: No recipient email. Set TO_EMAILS or EMAIL_ADDRESS in .env or use --to.")
         sys.exit(1)
+
+    # Collect extra URLs: CLI flags + PLAYER_TEAM_URL from .env
+    extra_urls = list(args.extra_urls or [])
+    if DEFAULT_TEAM_URL and DEFAULT_TEAM_URL not in extra_urls:
+        extra_urls.append(DEFAULT_TEAM_URL)
 
     daemon = ScheduleDaemon(
         team=args.team,
@@ -347,6 +362,7 @@ def main():
         to_addr=to_addr,
         dry_run=args.dry_run,
         log_hours=args.log_hours,
+        extra_urls=extra_urls,
     )
     daemon.start()
 

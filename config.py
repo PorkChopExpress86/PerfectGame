@@ -67,3 +67,4 @@ SMTP_TIMEOUT = 15
 DEFAULT_TEAM        = os.getenv("PLAYER_TEAM", "")
 DEFAULT_PLAYER_ID   = os.getenv("PLAYER_ID", "")
 DEFAULT_PLAYER_NAME = os.getenv("PLAYER_NAME", "")
+DEFAULT_TEAM_URL    = os.getenv("PLAYER_TEAM_URL", "")

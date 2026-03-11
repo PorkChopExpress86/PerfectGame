@@ -2,7 +2,7 @@
 """
 email_schedule.py - Emails the next game schedule for a given player.
 
-Reads team_schedule.json, filters for upcoming games, and sends
+Reads team_schedule.json, filters for upcoming games in the next 7 days, and sends
 a nicely formatted email via Gmail SMTP using credentials from .env.
 
 Requires the .venv virtual environment (setup_cron.sh handles this for cron).
@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import smtplib
+from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
@@ -33,12 +34,28 @@ def load_schedule(filepath="team_schedule.json"):
 
 
 def filter_upcoming(games):
-    """Return only upcoming games from the schedule."""
-    return [g for g in games if g.get("Type") == "Upcoming"]
+    """Return upcoming games within the next 7 days."""
+    now = datetime.now()
+    cutoff = now + timedelta(days=7)
+    current_year = now.year
+    result = []
+    for g in games:
+        if g.get("Type") != "Upcoming":
+            continue
+        date_str = (g.get("Date") or "").strip()
+        try:
+            game_date = datetime.strptime(f"{date_str} {current_year}", "%b %d %Y")
+        except ValueError:
+            result.append(g)  # keep if date unparseable
+            continue
+        if game_date <= cutoff:
+            result.append(g)
+    return result
 
 
 def build_email_body(games, player_name="Your Player Name"):
-    """Build a clean HTML email body from the game list."""
+    """Build a clean HTML email body for upcoming games in the next 7 days."""
+    games = filter_upcoming(games)
     if not games:
         return "<p>No upcoming games found in the schedule.</p>"
 

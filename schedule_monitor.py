@@ -243,9 +243,26 @@ def merge_into_schedule(existing, scraped):
 # ---------------------------------------------------------------------------
 
 def build_alert_email(games, player_name="Your Player Name"):
-    """Build a simple HTML email listing the affected games (Date/Time/Opponent/Location)."""
-    rows = ""
+    """Build a simple HTML email listing affected games in the next 7 days."""
+    now = datetime.now()
+    cutoff = now + timedelta(days=7)
+    current_year = now.year
+
+    filtered = []
     for g in games:
+        if g.get("Type") == "Past":
+            continue
+        date_str = (g.get("Date") or "").strip()
+        try:
+            game_date = datetime.strptime(f"{date_str} {current_year}", "%b %d %Y")
+        except ValueError:
+            filtered.append(g)  # keep if date unparseable
+            continue
+        if game_date <= cutoff:
+            filtered.append(g)
+
+    rows = ""
+    for g in filtered:
         rows += f"""
             <tr>
                 <td style="padding:8px;border:1px solid #ddd;">{g.get('Date', 'TBD')}</td>
