@@ -401,7 +401,12 @@ def run_check(team, player_id, player_name, to_addr, force=False, log_hours=LOG_
 
     # --- Email ---
     log_section("Email")
-    if not new_entries and not changed_entries:
+    
+    # Filter out games that are now Past (finished games with scores) so we don't alert on them
+    alert_games = [g for g in new_entries if g.get("Type") != "Past"] + \
+                  [c["new"] for c in changed_entries if c["new"].get("Type") != "Past"]
+
+    if not alert_games:
         if force:
             log("--force flag set — sending full schedule email.")
             from email_schedule import build_email_body
@@ -409,11 +414,13 @@ def run_check(team, player_id, player_name, to_addr, force=False, log_hours=LOG_
             subject = f"⚾ {player_name} - Game Schedule"
             send_alert(to_addr, subject, html)
         else:
-            log("No changes — no email sent.")
+            if new_entries or changed_entries:
+                log("Changes were only to past games — no email sent.")
+            else:
+                log("No changes — no email sent.")
     else:
-        all_games = new_entries + [c["new"] for c in changed_entries]
         subject   = f"⚾ {player_name} - Schedule Update"
-        html      = build_alert_email(all_games, player_name=player_name)
+        html      = build_alert_email(alert_games, player_name=player_name)
         send_alert(to_addr, subject, html)
 
     elapsed = (datetime.now() - run_start).total_seconds()
