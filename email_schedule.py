@@ -34,22 +34,29 @@ def load_schedule(filepath="team_schedule.json"):
 
 
 def filter_upcoming(games):
-    """Return upcoming games within the next 7 days."""
+    """Return upcoming games within the next 7 days, and recent games from last 48 hours."""
     now = datetime.now()
-    cutoff = now + timedelta(days=7)
+    cutoff_future = now + timedelta(days=7)
+    cutoff_past = now - timedelta(hours=48)
     current_year = now.year
     result = []
     for g in games:
-        if g.get("Type") != "Upcoming":
-            continue
         date_str = (g.get("Date") or "").strip()
         try:
             game_date = datetime.strptime(f"{date_str} {current_year}", "%b %d %Y")
         except ValueError:
-            result.append(g)  # keep if date unparseable
+            if g.get("Type") == "Upcoming":
+                result.append(g)  # keep upcomings if unparseable
             continue
-        if game_date <= cutoff:
-            result.append(g)
+            
+        if g.get("Type") == "Past":
+            # approximate game end at 23:59
+            game_end_approx = game_date.replace(hour=23, minute=59)
+            if game_end_approx >= cutoff_past:
+                result.append(g)
+        else:
+            if game_date <= cutoff_future:
+                result.append(g)
     return result
 
 
@@ -62,14 +69,14 @@ def build_email_body(games, player_name="Your Player Name"):
     rows = ""
     for g in games:
         date = g.get("Date") or "TBD"
-        time = g.get("Time") or "TBD"
+        time_or_result = g.get("Score/Result") if g.get("Type") == "Past" else g.get("Time", "TBD")
         opponent = g.get("Opponent") or "Unknown"
         location = g.get("Location", "TBD")
 
         rows += f"""
         <tr>
             <td style="padding:8px;border:1px solid #ddd;">{date}</td>
-            <td style="padding:8px;border:1px solid #ddd;">{time}</td>
+            <td style="padding:8px;border:1px solid #ddd;">{time_or_result}</td>
             <td style="padding:8px;border:1px solid #ddd;">{opponent}</td>
             <td style="padding:8px;border:1px solid #ddd;">{location}</td>
         </tr>"""
@@ -83,7 +90,7 @@ def build_email_body(games, player_name="Your Player Name"):
             <thead>
                 <tr style="background-color:#1a3a5c;color:white;">
                     <th style="padding:10px;border:1px solid #ddd;">Date</th>
-                    <th style="padding:10px;border:1px solid #ddd;">Time</th>
+                    <th style="padding:10px;border:1px solid #ddd;">Time / Result</th>
                     <th style="padding:10px;border:1px solid #ddd;">Opponent</th>
                     <th style="padding:10px;border:1px solid #ddd;">Location</th>
                 </tr>

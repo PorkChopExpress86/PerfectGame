@@ -242,8 +242,28 @@ def merge_into_schedule(existing, scraped):
 # Email
 # ---------------------------------------------------------------------------
 
+def is_recent_past_game(game, hours=48):
+    """Return True if a game is Past and occurred within the last `hours` hours.
+    Assumes Date is parsed relative to current year and time is midnight.
+    """
+    if game.get("Type") != "Past":
+        return False
+    date_str = (game.get("Date") or "").strip()
+    if not date_str:
+        return False
+    current_year = datetime.now().year
+    try:
+        game_date = datetime.strptime(f"{date_str} {current_year}", "%b %d %Y")
+        # approximate game end at 23:59 to avoid filtering out evening games from 48h ago
+        game_end_approx = game_date.replace(hour=23, minute=59)
+        cutoff = datetime.now() - timedelta(hours=hours)
+        return game_end_approx >= cutoff
+    except ValueError:
+        return False
+
+
 def build_alert_email(games, player_name="Your Player Name"):
-    """Build a simple HTML email listing affected games in the next 7 days."""
+    """Build a simple HTML email listing affected games in the next 7 days and recent results."""
     now = datetime.now()
     cutoff = now + timedelta(days=7)
     current_year = now.year
@@ -251,6 +271,7 @@ def build_alert_email(games, player_name="Your Player Name"):
     filtered = []
     for g in games:
         if g.get("Type") == "Past":
+            filtered.append(g)
             continue
         date_str = (g.get("Date") or "").strip()
         try:
@@ -263,10 +284,11 @@ def build_alert_email(games, player_name="Your Player Name"):
 
     rows = ""
     for g in filtered:
+        time_or_result = g.get("Score/Result") if g.get("Type") == "Past" else g.get("Time", "TBD")
         rows += f"""
             <tr>
                 <td style="padding:8px;border:1px solid #ddd;">{g.get('Date', 'TBD')}</td>
-                <td style="padding:8px;border:1px solid #ddd;">{g.get('Time', 'TBD')}</td>
+                <td style="padding:8px;border:1px solid #ddd;">{time_or_result}</td>
                 <td style="padding:8px;border:1px solid #ddd;">{g.get('Opponent', '?')}</td>
                 <td style="padding:8px;border:1px solid #ddd;">{g.get('Location', 'TBD')}</td>
             </tr>"""
@@ -279,7 +301,7 @@ def build_alert_email(games, player_name="Your Player Name"):
             <thead>
                 <tr style="background-color:#1a3a5c;color:white;">
                     <th style="padding:10px;border:1px solid #ddd;">Date</th>
-                    <th style="padding:10px;border:1px solid #ddd;">Time</th>
+                    <th style="padding:10px;border:1px solid #ddd;">Time / Result</th>
                     <th style="padding:10px;border:1px solid #ddd;">Opponent</th>
                     <th style="padding:10px;border:1px solid #ddd;">Location</th>
                 </tr>
@@ -402,9 +424,9 @@ def run_check(team, player_id, player_name, to_addr, force=False, log_hours=LOG_
     # --- Email ---
     log_section("Email")
     
-    # Filter out games that are now Past (finished games with scores) so we don't alert on them
-    alert_games = [g for g in new_entries if g.get("Type") != "Past"] + \
-                  [c["new"] for c in changed_entries if c["new"].get("Type") != "Past"]
+    # Filter out games that are old Past games so we don't alert on them
+    alert_games = [g for g in new_entries if g.get("Type") != "Past" or is_recent_past_game(g)] + \
+                  [c["new"] for c in changed_entries if c["new"].get("Type") != "Past" or is_recent_past_game(c["new"])]
 
     if not alert_games:
         if force:
