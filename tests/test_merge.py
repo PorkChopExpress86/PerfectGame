@@ -6,7 +6,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from schedule_monitor import merge_into_schedule
+from perfect_game.schedule_merge import merge_into_schedule
 
 
 class TestMergeIntoSchedule:
@@ -112,6 +112,41 @@ class TestMergeIntoSchedule:
         # Only one entry for (Mar 1, Expos) because scraped_by_key deduplicates
         count = sum(1 for g in merged if g["Opponent"] == "Expos" and g["Date"] == "Mar 1")
         assert count == 1
+
+    def test_unknown_upcoming_opponent_is_replaced(self):
+        """A named scraped opponent should replace an Unknown placeholder game."""
+        existing = [{"Date": "Mar 1", "Opponent": "Unknown", "Type": "Upcoming",
+                      "Time": "3:00 PM", "Location": "Field 4"}]
+        scraped = [{"Date": "Mar 1", "Opponent": "RBC-RED", "Type": "Upcoming",
+                     "Time": "3:00 PM", "Location": "Field 4",
+                     "Score/Result": "N/A"}]
+
+        merged, new, changed = merge_into_schedule(existing, scraped)
+
+        assert len(merged) == 1
+        assert merged[0]["Opponent"] == "RBC-RED"
+        assert new == []
+        assert len(changed) == 1
+        assert "Opponent" in changed[0]["fields"]
+
+    def test_existing_unknown_duplicate_is_removed_when_named_game_exists(self):
+        """A stale Unknown placeholder should not survive beside the named game."""
+        existing = [
+            {"Date": "Mar 1", "Opponent": "Unknown", "Type": "Upcoming",
+             "Time": "3:00 PM", "Location": "Field 4"},
+            {"Date": "Mar 1", "Opponent": "RBC-RED", "Type": "Upcoming",
+             "Time": "3:00 PM", "Location": "Field 4", "Score/Result": "N/A"},
+        ]
+        scraped = [{"Date": "Mar 1", "Opponent": "RBC-RED", "Type": "Upcoming",
+                    "Time": "3:00 PM", "Location": "Field 4",
+                    "Score/Result": "N/A"}]
+
+        merged, new, changed = merge_into_schedule(existing, scraped)
+
+        assert len(merged) == 1
+        assert merged[0]["Opponent"] == "RBC-RED"
+        assert new == []
+        assert changed == []
 
     def test_multiple_new_games(self):
         """Multiple new games should all be appended and reported."""

@@ -6,13 +6,15 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from perfect_game_scraper import parse_and_filter_schedule
+from perfect_game.perfect_game_scraper import parse_and_filter_schedule
 from tests.conftest import (
     SAMPLE_FULL_PAGE,
     SAMPLE_EMPTY_PAGE,
     SAMPLE_MALFORMED_ROW,
     SAMPLE_SCHEDULE_HTML_ROW,
     SAMPLE_PAST_GAME_ROW,
+    _UPCOMING_DATE,
+    _PAST_DATE,
 )
 
 
@@ -25,7 +27,7 @@ class TestParseAndFilterSchedule:
         result = parse_and_filter_schedule(html)
         assert len(result) == 1
         game = result[0]
-        assert game["Date"] == "Mar 1"
+        assert game["Date"] == _UPCOMING_DATE
         assert game["Time"] == "11:30 AM"
         assert game["Opponent"] == "Expos Baseball 10U"
         assert "Bayer Park" in game["Location"]
@@ -37,7 +39,7 @@ class TestParseAndFilterSchedule:
         result = parse_and_filter_schedule(html)
         assert len(result) == 1
         game = result[0]
-        assert game["Date"] == "Feb 28"
+        assert game["Date"] == _PAST_DATE
         assert game["Type"] == "Past"
         assert "Played" in game["Score/Result"]
         assert game["Opponent"] == "Fairfield Ducks"
@@ -68,7 +70,7 @@ class TestParseAndFilterSchedule:
         # But the game has an opponent so it's still included as Upcoming.
         # This is acceptable: a malformed date doesn't crash the parser.
         if len(result) > 0:
-            assert result[0]["Date"] == "" or result[0]["Date"] is None
+            assert result[0]["Date"] in ("", "TBD") or result[0]["Date"] is None
 
     def test_output_fields_present(self):
         """Every game dict should have all expected keys."""

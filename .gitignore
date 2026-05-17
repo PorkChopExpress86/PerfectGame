@@ -7,7 +7,13 @@ node_modules/
 .last_schedule_state.json
 monitor.log
 monitor.pid
+.perfectgame_backoff.json
 team_schedule.json
+notification_history.json
+usssa_team_monitor.log
+usssa_monitor.log
+.usssa_snapshots/
+.usssa_team_schedule.json
 team_url.txt
 player_*.json
 .pytest_cache/

@@ -127,7 +127,7 @@ def random_delay(min_seconds=None, max_seconds=None):
     max_seconds : float, optional
         Maximum delay (default from config.RANDOM_DELAY_MAX).
     """
-    from config import RANDOM_DELAY_MIN, RANDOM_DELAY_MAX
+    from shared.config import RANDOM_DELAY_MIN, RANDOM_DELAY_MAX
     lo = min_seconds if min_seconds is not None else RANDOM_DELAY_MIN
     hi = max_seconds if max_seconds is not None else RANDOM_DELAY_MAX
     delay = random.uniform(lo, hi)

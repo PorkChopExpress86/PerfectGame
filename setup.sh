@@ -2,8 +2,8 @@
 # setup.sh - Sets up the PerfectGame schedule monitor.
 #
 # Offers two modes:
-#   1. systemd service (recommended) – adaptive daemon with dynamic intervals
-#   2. cron (legacy)                  – fixed 10-minute polling
+#   1. systemd service (recommended) – daemon with Thu-Sun polling gates
+#   2. cron (legacy)                  – fixed 10-minute Thu-Sun polling
 #
 # Usage: bash setup.sh
 
@@ -51,11 +51,10 @@ fi
 echo "How would you like to run the monitor?"
 echo ""
 echo "  1) systemd service  (recommended)"
-echo "     Long-running daemon with adaptive polling intervals."
-echo "     Polls faster near game time, slower when games are far away."
+echo "     Long-running daemon that polls every 10 minutes Thu-Sun."
 echo ""
 echo "  2) cron (legacy)"
-echo "     Fixed 10-minute polling via cron jobs."
+echo "     Fixed 10-minute Thu-Sun polling via cron jobs."
 echo ""
 read -p "Choose [1/2] (default: 1): " MODE
 MODE=${MODE:-1}
@@ -78,17 +77,19 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=$SCRIPT_DIR
-ExecStart=$PYTHON $SCRIPT_DIR/adaptive_scheduler.py
+ExecStart=$PYTHON $SCRIPT_DIR/perfect_game/schedule_daemon.py
 Environment=PYTHONUNBUFFERED=1
 Restart=on-failure
 RestartSec=30
 
-# Games are on weekends; the daemon adapts polling automatically
-# and slows down on weekdays to conserve resources.
+# The daemon polls every 10 minutes Thu-Sun.
 
 [Install]
 WantedBy=default.target
 EOF
+
+    # Retire the older one-shot timer name if it exists. The daemon owns PG polling.
+    systemctl --user disable --now perfectgame-schedule.timer 2>/dev/null || true
 
     systemctl --user daemon-reload
     systemctl --user enable "$SERVICE_NAME"
@@ -117,11 +118,11 @@ EOF
 
 elif [ "$MODE" = "2" ]; then
     # ── cron (legacy) ───────────────────────────────────────────
-    echo -e "${YELLOW}Setting up cron jobs (10-minute fixed interval)...${NC}"
+    echo -e "${YELLOW}Setting up cron jobs (10-minute Thu-Sun interval)...${NC}"
 
-    MONITOR="$SCRIPT_DIR/schedule_monitor.py"
+    MONITOR="$SCRIPT_DIR/perfect_game/schedule_monitor.py"
     CMD="cd $SCRIPT_DIR && $PYTHON $MONITOR >> $SCRIPT_DIR/monitor.log 2>&1"
-    CRON_ENTRY="*/10 * * * * $CMD"
+    CRON_ENTRY="*/10 * * * 4-6,0 $CMD"
 
     # Check if cron job already exists
     if crontab -l 2>/dev/null | grep -qF "schedule_monitor.py"; then
@@ -138,7 +139,7 @@ elif [ "$MODE" = "2" ]; then
 
     (
       crontab -l 2>/dev/null
-      echo "# PerfectGame monitor — every 10 minutes"
+      echo "# PerfectGame monitor — every 10 minutes Thu-Sun"
       echo "$CRON_ENTRY"
     ) | crontab -
 
@@ -149,8 +150,8 @@ elif [ "$MODE" = "2" ]; then
     echo "  crontab -l                       # View your cron jobs"
     echo "  tail -f $SCRIPT_DIR/monitor.log  # Watch the monitor log"
     echo ""
-    echo "Note: cron uses a fixed 10-minute interval."
-    echo "For adaptive intervals, re-run this script and choose option 1 (systemd)."
+    echo "Note: cron uses a fixed 10-minute Thu-Sun interval."
+    echo "For daemon-managed polling, re-run this script and choose option 1 (systemd)."
 else
     echo -e "${RED}Invalid choice. Exiting.${NC}"
     exit 1

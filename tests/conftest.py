@@ -3,15 +3,22 @@ Shared test fixtures and sample data for PerfectGame tests.
 """
 
 import json
+from datetime import datetime, timedelta
 import pytest
 
 # ---------------------------------------------------------------------------
 # Sample HTML snippets
 # ---------------------------------------------------------------------------
 
-SAMPLE_SCHEDULE_HTML_ROW = """
+# Dates are computed at import time so they stay within the parser's filter
+# windows regardless of when the tests are run.
+_now = datetime.now()
+_UPCOMING_DATE = (_now + timedelta(days=2)).strftime("%b %-d")   # 2 days from now
+_PAST_DATE     = (_now - timedelta(hours=24)).strftime("%b %-d") # yesterday (within 14-day window)
+
+SAMPLE_SCHEDULE_HTML_ROW = f"""
 <div class="nestedscheduleGridRow">
-    <span id="ctl00_lblMonthDay" class="no-wrap fw-bold">Mar 1</span>
+    <span id="ctl00_lblMonthDay" class="no-wrap fw-bold">{_UPCOMING_DATE}</span>
     <div class="col-5 col-lg-4">
         <span>11:30 AM</span>
     </div>
@@ -21,9 +28,9 @@ SAMPLE_SCHEDULE_HTML_ROW = """
 </div>
 """
 
-SAMPLE_PAST_GAME_ROW = """
+SAMPLE_PAST_GAME_ROW = f"""
 <div class="nestedscheduleGridRow">
-    <span id="ctl00_lblMonthDay" class="no-wrap fw-bold">Feb 28</span>
+    <span id="ctl00_lblMonthDay" class="no-wrap fw-bold">{_PAST_DATE}</span>
     <a id="ctl00_hlOpponentName" href="/team/456">Fairfield Ducks</a>
     <span id="ctl00_lblField" class="lbl">3</span>
     <a id="ctl00_hlBallpark" href="/park/1">@ Bayer Park</a>

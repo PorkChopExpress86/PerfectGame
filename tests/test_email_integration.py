@@ -6,9 +6,12 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
-from email_schedule import build_email_body, filter_upcoming
-from schedule_monitor import build_alert_email, send_alert
+from shared.email_schedule import build_email_body, filter_upcoming
+from perfect_game.notifications import build_alert_email, send_alert
+
+_RECENT_PAST = (datetime.now() - timedelta(hours=24)).strftime("%b %-d")
 
 
 class TestBuildEmailBody:
@@ -27,12 +30,13 @@ class TestBuildEmailBody:
         assert "<table" in html
 
     def test_full_schedule_with_past_games(self):
-        """Should include all games in the table."""
+        """Should include recent past games alongside upcoming games."""
         games = [
-            {"Date": "Feb 28", "Time": "N/A", "Opponent": "Ducks",
+            {"Date": _RECENT_PAST, "Time": "N/A", "Opponent": "Ducks",
              "Location": "Field 3", "Score/Result": "Played (L 19-7)",
              "Type": "Past"},
-            {"Date": "Mar 1", "Time": "11:30 AM", "Opponent": "Expos",
+            {"Date": (datetime.now() + timedelta(days=1)).strftime("%b %-d"),
+             "Time": "11:30 AM", "Opponent": "Expos",
              "Location": "Field 1", "Score/Result": "N/A", "Type": "Upcoming"},
         ]
         html = build_email_body(games)
@@ -99,13 +103,13 @@ class TestSendAlert:
     """Tests for schedule_monitor.send_alert()."""
 
     @patch.dict(os.environ, {"EMAIL_ADDRESS": "test@test.com", "EMAIL_APP_PASSWORD": "pass123"})
-    @patch("schedule_monitor.smtplib.SMTP_SSL")
+    @patch("perfect_game.notifications.smtplib.SMTP_SSL")
     def test_send_calls_smtp(self, mock_smtp_class):
         """Should connect to SMTP and call sendmail."""
         # Reload env vars
-        import schedule_monitor
-        schedule_monitor.EMAIL_ADDRESS = "test@test.com"
-        schedule_monitor.EMAIL_APP_PASSWORD = "pass123"
+        from perfect_game import notifications
+        notifications.EMAIL_ADDRESS = "test@test.com"
+        notifications.EMAIL_APP_PASSWORD = "pass123"
 
         mock_server = MagicMock()
         mock_smtp_class.return_value.__enter__ = MagicMock(return_value=mock_server)
@@ -118,8 +122,8 @@ class TestSendAlert:
 
     def test_send_fails_without_credentials(self):
         """Should return False if credentials are not set."""
-        import schedule_monitor
-        schedule_monitor.EMAIL_ADDRESS = None
-        schedule_monitor.EMAIL_APP_PASSWORD = None
+        from perfect_game import notifications
+        notifications.EMAIL_ADDRESS = None
+        notifications.EMAIL_APP_PASSWORD = None
         result = send_alert("x@test.com", "Subj", "<p>Hi</p>")
         assert result is False

@@ -11,34 +11,22 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-PROJECT_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = Path(__file__).resolve().parent.parent
 SCHEDULE_FILE = PROJECT_DIR / "team_schedule.json"
+NOTIFICATION_HISTORY_FILE = PROJECT_DIR / "notification_history.json"
 LOG_FILE = PROJECT_DIR / "monitor.log"
 PID_FILE = PROJECT_DIR / "monitor.pid"
 ENV_FILE = PROJECT_DIR / ".env"
+BACKOFF_FILE = PROJECT_DIR / ".perfectgame_backoff.json"
 
 # ---------------------------------------------------------------------------
-# Adaptive polling intervals (minutes)
+# Perfect Game polling
 # ---------------------------------------------------------------------------
-# Game happening now (within ±2 hours of start)
-INTERVAL_GAME_NOW = 5
-# Game today but >2 hours away
-INTERVAL_GAME_TODAY = 10
-# Game tomorrow
-INTERVAL_GAME_TOMORROW = 20
-# Game within 3 days
-INTERVAL_GAME_3_DAYS = 30
-# Game within 7 days
-INTERVAL_GAME_7_DAYS = 60
-# No game within 7 days (maximum backoff)
-INTERVAL_MAX = 120
-# Minimum interval on non-game weekdays (Mon-Thu when not eve of game day)
-INTERVAL_WEEKDAY_MIN = 60
-# Default / starting interval
-INTERVAL_DEFAULT = 10
+# Fixed poll interval during the active Perfect Game weekend window.
+POLL_INTERVAL_MINUTES = 10
 
-# Days games are played (weekday() values: Mon=0 … Sun=6)
-GAME_DAYS = [5, 6]  # Saturday and Sunday
+# Days the Perfect Game monitor should actively look for schedules/scores.
+POLL_DAYS = [3, 4, 5, 6]  # Thursday through Sunday
 
 # ---------------------------------------------------------------------------
 # Scraping
@@ -67,4 +55,4 @@ SMTP_TIMEOUT = 15
 DEFAULT_TEAM        = os.getenv("PLAYER_TEAM", "")
 DEFAULT_PLAYER_ID   = os.getenv("PLAYER_ID", "")
 DEFAULT_PLAYER_NAME = os.getenv("PLAYER_NAME", "")
-DEFAULT_TEAM_URL    = os.getenv("PLAYER_TEAM_URL", "")
+DEFAULT_TEAM_URL    = os.getenv("TEAM_URL") or os.getenv("PLAYER_TEAM_URL", "")

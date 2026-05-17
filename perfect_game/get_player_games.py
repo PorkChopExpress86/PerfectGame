@@ -14,13 +14,20 @@ Usage:
 import argparse
 import json
 import re
+import sys
+import os
 
 import requests
 from bs4 import BeautifulSoup
 
-from browser_profile import get_random_headers, random_delay
-from config import REQUEST_TIMEOUT
-from perfect_game_scraper import parse_and_filter_schedule, _request_with_retry
+# Ensure project dir is on the path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(SCRIPT_DIR)
+sys.path.insert(0, ROOT_DIR)
+
+from shared.browser_profile import get_random_headers, random_delay
+from shared.config import REQUEST_TIMEOUT
+from perfect_game.perfect_game_scraper import parse_and_filter_schedule, _request_with_retry
 
 def fetch_html_with_requests(url, session=None):
     """Fetch HTML content using requests with rotating browser headers."""

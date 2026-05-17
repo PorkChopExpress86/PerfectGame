@@ -15,13 +15,21 @@ Usage:
 import argparse
 import json
 import os
+import sys
 import smtplib
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
-load_dotenv()
+# Ensure project dir is on the path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(SCRIPT_DIR)
+sys.path.insert(0, ROOT_DIR)
+
+from shared.telegram_notifier import send_telegram
+
+load_dotenv(os.path.join(ROOT_DIR, ".env"))
 
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_APP_PASSWORD = os.getenv("EMAIL_APP_PASSWORD")
@@ -189,6 +197,11 @@ def main():
     subject = f"⚾ {args.player} - Game Schedule Update"
     html_body = build_email_body(games, player_name=args.player)
 
+    tg_body = "\n".join([
+        f"⚾ {g.get('Date', 'TBD')} {g.get('Time', 'TBD')} vs {g.get('Opponent', '?')} @ {g.get('Location', 'TBD')}"
+        for g in games
+    ])
+    send_telegram(subject, tg_body)
     send_email(to_addr, subject, html_body)
 
 

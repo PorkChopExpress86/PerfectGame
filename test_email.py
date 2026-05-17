@@ -17,7 +17,7 @@ EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_APP_PASSWORD = os.getenv("EMAIL_APP_PASSWORD")
 
 
-def test_email():
+def send_test_email():
     if not EMAIL_ADDRESS or not EMAIL_APP_PASSWORD:
         print("❌ EMAIL_ADDRESS and EMAIL_APP_PASSWORD must be set in .env")
         return False
@@ -72,4 +72,4 @@ def test_email():
 
 
 if __name__ == "__main__":
-    test_email()
+    send_test_email()

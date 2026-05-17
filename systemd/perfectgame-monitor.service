@@ -10,14 +10,13 @@ Wants=network-online.target
 Type=simple
 User=%i
 WorkingDirectory=__INSTALL_DIR__
-ExecStart=__INSTALL_DIR__/.venv/bin/python3 __INSTALL_DIR__/adaptive_scheduler.py
+ExecStart=__INSTALL_DIR__/.venv/bin/python3 __INSTALL_DIR__/perfect_game/schedule_daemon.py
 Environment=PYTHONUNBUFFERED=1
 Restart=on-failure
 RestartSec=30
 
 # Service starts on boot via loginctl enable-linger.
-# The daemon adapts polling — faster on weekends near game time,
-# slower on weekdays.
+# The daemon polls every 10 minutes Thu-Sun.
 StandardOutput=append:__INSTALL_DIR__/monitor.log
 StandardError=append:__INSTALL_DIR__/monitor.log
 
