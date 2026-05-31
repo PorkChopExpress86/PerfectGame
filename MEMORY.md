@@ -6,6 +6,12 @@ why, and any follow-up. This is separate from `ERRORS.md` (which tracks pitfalls
 `CLAUDE.md` (which is stable guidance).
 
 ## 2026-05-30
+- **✅ Validated live (22:02 CDT).** The daemon detected the Sunday bracket game
+  (`May 31 1:15 PM vs Unknown @ Field 4 @ Doss Park`) as NEW within a 3-min hot-window cycle
+  (posted between the 21:59 and 22:02 polls), and the email/Telegram alert was received.
+  End-to-end timing + event discovery confirmed working. The opponent posted as `Unknown`
+  because it was a bracket game still TBD — `schedule_merge` replaces that placeholder with
+  the named team on a later cycle (see `ERRORS.md`).
 - **5-minute alert window via hot polling.** Added `HOT_POLL_INTERVAL_MINUTES = 3` and
   `HOT_POLL_WINDOWS` to `shared/config.py`; `polling_gate.in_hot_window()` +
   `should_poll_now()` now return a 3-min interval inside the posting windows, and

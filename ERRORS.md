@@ -38,3 +38,12 @@ Add an entry whenever you lose time to something non-obvious: **symptom → caus
 - **Cause:** `schedule_daemon._run_check` reads `decision.interval_minutes`. A bare
   `MagicMock(should_poll=True)` returns a Mock (not an int) for that attribute.
 - **Fix:** Set `interval_minutes=POLL_INTERVAL_MINUTES` (or `HOT_POLL_INTERVAL_MINUTES`) on the mock.
+
+## A newly detected bracket game shows opponent "Unknown" (not a bug)
+- **Symptom:** A fresh Sunday/bracket alert reads `vs Unknown` instead of a team name.
+- **Cause:** Perfect Game posts bracket games before the feeder games finish, so the opponent
+  is still TBD; `parse_and_filter_schedule` records it as `Unknown`. (Observed/validated
+  2026-05-30: `May 31 1:15 PM vs Unknown @ Field 4 @ Doss Park`.)
+- **Fix:** Nothing — this is expected. `schedule_merge` replaces the `Unknown`/`TBD` placeholder
+  with the real opponent (matched on date/time/location) on a later poll once PG fills it in,
+  and that update goes out as a "changed" alert. Don't special-case or suppress it.
