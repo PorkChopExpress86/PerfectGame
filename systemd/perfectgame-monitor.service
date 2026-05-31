@@ -16,7 +16,8 @@ Restart=on-failure
 RestartSec=30
 
 # Service starts on boot via loginctl enable-linger.
-# The daemon polls every 10 minutes Thu-Sun.
+# The daemon polls Thu-Sun: every 3 min inside the hot posting windows
+# (HOT_POLL_WINDOWS in shared/config.py), every 10 min otherwise.
 StandardOutput=append:__INSTALL_DIR__/monitor.log
 StandardError=append:__INSTALL_DIR__/monitor.log
 

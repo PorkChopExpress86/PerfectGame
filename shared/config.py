@@ -22,11 +22,26 @@ BACKOFF_FILE = PROJECT_DIR / ".perfectgame_backoff.json"
 # ---------------------------------------------------------------------------
 # Perfect Game polling
 # ---------------------------------------------------------------------------
-# Fixed poll interval during the active Perfect Game weekend window.
+# Baseline poll interval during the active Perfect Game weekend window.
 POLL_INTERVAL_MINUTES = 10
+
+# Faster interval used inside the "hot" posting windows below, so a newly
+# posted game/bracket is detected within ~5 minutes (interval + scrape time).
+HOT_POLL_INTERVAL_MINUTES = 3
 
 # Days the Perfect Game monitor should actively look for schedules/scores.
 POLL_DAYS = [3, 4, 5, 6]  # Thursday through Sunday
+
+# "Hot" windows when new games/brackets are expected to be posted and we want
+# ~5-minute detection. Each entry is (start_weekday, start_hour, end_weekday,
+# end_hour) in local time, with Monday=0 .. Sunday=6 and the end exclusive.
+#   - Sat games drop "sometime Thursday": Thu 12:00 -> Sat 00:00 (Fri buffer).
+#   - Sun brackets + Sun next-round games: Sat 19:00 -> Sun 21:00.
+# Both windows fall inside POLL_DAYS so the weekday gate never blocks them.
+HOT_POLL_WINDOWS = [
+    (3, 12, 5, 0),   # Thursday 12:00  ->  Saturday 00:00
+    (5, 19, 6, 21),  # Saturday 19:00  ->  Sunday 21:00
+]
 
 # ---------------------------------------------------------------------------
 # Scraping

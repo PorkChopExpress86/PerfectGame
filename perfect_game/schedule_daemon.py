@@ -90,7 +90,7 @@ class ScheduleDaemon:
             )
 
             decision = should_poll_now(merged)
-            new_interval = POLL_INTERVAL_MINUTES
+            new_interval = decision.interval_minutes
             if not decision.should_poll and decision.next_poll_at:
                 seconds = max(0, (decision.next_poll_at - datetime.now()).total_seconds())
                 new_interval = max(POLL_INTERVAL_MINUTES, int(seconds // 60) or 1)

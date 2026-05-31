@@ -51,7 +51,7 @@ fi
 echo "How would you like to run the monitor?"
 echo ""
 echo "  1) systemd service  (recommended)"
-echo "     Long-running daemon that polls every 10 minutes Thu-Sun."
+echo "     Long-running daemon: 3-min hot windows + 10-min baseline Thu-Sun."
 echo ""
 echo "  2) cron (legacy)"
 echo "     Fixed 10-minute Thu-Sun polling via cron jobs."
@@ -82,7 +82,8 @@ Environment=PYTHONUNBUFFERED=1
 Restart=on-failure
 RestartSec=30
 
-# The daemon polls every 10 minutes Thu-Sun.
+# The daemon polls Thu-Sun: every 3 min inside the hot posting windows
+# (HOT_POLL_WINDOWS in shared/config.py), every 10 min otherwise.
 
 [Install]
 WantedBy=default.target

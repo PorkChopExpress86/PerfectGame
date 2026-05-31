@@ -7,16 +7,19 @@ The project previously used adaptive polling. Runtime behavior is now fixed
 from perfect_game.polling_gate import (
     current_weekend_window,
     has_upcoming_game_in_current_window,
+    in_hot_window,
     should_poll_now,
 )
 from perfect_game.schedule_daemon import ScheduleDaemon, main
-from shared.config import POLL_INTERVAL_MINUTES
+from shared.config import HOT_POLL_INTERVAL_MINUTES, POLL_INTERVAL_MINUTES
 
 __all__ = [
+    "HOT_POLL_INTERVAL_MINUTES",
     "POLL_INTERVAL_MINUTES",
     "ScheduleDaemon",
     "current_weekend_window",
     "has_upcoming_game_in_current_window",
+    "in_hot_window",
     "main",
     "should_poll_now",
 ]

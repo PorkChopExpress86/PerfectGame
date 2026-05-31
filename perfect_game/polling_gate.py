@@ -3,7 +3,34 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from shared.config import POLL_DAYS, POLL_INTERVAL_MINUTES
+from shared.config import (
+    HOT_POLL_INTERVAL_MINUTES,
+    HOT_POLL_WINDOWS,
+    POLL_DAYS,
+    POLL_INTERVAL_MINUTES,
+)
+
+
+def _minute_of_week(weekday, hour, minute=0):
+    """Minutes elapsed since Monday 00:00 (Monday=0 .. Sunday=6)."""
+    return weekday * 1440 + hour * 60 + minute
+
+
+def in_hot_window(now=None):
+    """Return True when `now` falls inside a fast-polling posting window."""
+    if now is None:
+        now = datetime.now()
+    current = _minute_of_week(now.weekday(), now.hour, now.minute)
+    for start_wd, start_hr, end_wd, end_hr in HOT_POLL_WINDOWS:
+        start = _minute_of_week(start_wd, start_hr)
+        end = _minute_of_week(end_wd, end_hr)
+        if start <= end:
+            if start <= current < end:
+                return True
+        else:  # window wraps past Sunday into Monday
+            if current >= start or current < end:
+                return True
+    return False
 
 
 @dataclass(frozen=True)
@@ -86,4 +113,14 @@ def should_poll_now(games, now=None):
             "outside Thursday-Sunday polling window",
             next_poll_at=next_poll,
         )
-    return PollDecision(True, "within Thursday-Sunday polling window")
+    if in_hot_window(now):
+        return PollDecision(
+            True,
+            "within hot posting window",
+            interval_minutes=HOT_POLL_INTERVAL_MINUTES,
+        )
+    return PollDecision(
+        True,
+        "within Thursday-Sunday polling window",
+        interval_minutes=POLL_INTERVAL_MINUTES,
+    )

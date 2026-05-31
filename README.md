@@ -5,7 +5,7 @@ An automated tool to monitor any player's Perfect Game and USSSA schedules. It s
 ## Features
 
 - **Multi-Platform Support**: Monitors both **Perfect Game (PG)** and **USSSA** schedules simultaneously.
-- **Weekend Polling Gates**: Polls Perfect Game every 10 minutes Thursday through Sunday so late Sunday bracket games can be detected.
+- **Weekend Polling Gates**: Polls Perfect Game Thursday through Sunday, with **fast 3-minute "hot" windows** around the two times new games are posted (Saturday games drop Thursday; Sunday brackets/next-round games drop Saturday evening onward) so they are detected within ~5 minutes. A 10-minute baseline covers the rest of the weekend.
 - **Tournament Deep-Scanning**: Automatically follows "Schedule" links on tournament pages to find specific game times and field locations that are often hidden on main team pages.
 - **Smart Change Detection**:
     - **PG**: Notifies on changes to Score, Time, or Location.
@@ -90,7 +90,7 @@ python3 usssa/usssa_bracket_monitor.py --once
 ## Key Files
 | File | Description |
 |------|-------------|
-| `perfect_game/schedule_daemon.py` | Fixed-interval PG daemon. |
+| `perfect_game/schedule_daemon.py` | Time-aware PG daemon (3-min hot windows, 10-min baseline). |
 | `perfect_game/schedule_monitor.py` | One-shot PG scrape/merge/notify CLI. |
 | `perfect_game/perfect_game_scraper.py` | BS4-based scraper for PG pages. |
 | `usssa/usssa_team_monitor.py` | USSSA API-based team monitor. |
@@ -99,7 +99,18 @@ python3 usssa/usssa_bracket_monitor.py --once
 | `team_schedule.json` | Local database for PG games. |
 
 ## Tournament Weekend Logic
-The system is optimized for tournament weekends:
-- **Saturday Evening**: As brackets are finalized, the Sunday game is detected as a "New Game" and reported immediately.
-- **Sunday Progress**: If the team wins, the next bracket game is picked up in the next 10-minute cycle.
+The system is optimized for tournament weekends. The daemon polls faster (every
+3 minutes) during the windows when new games are actually posted, so additions
+are caught within ~5 minutes (`HOT_POLL_WINDOWS` in `shared/config.py`):
+
+| Window | When (Central) | Catches |
+|--------|----------------|---------|
+| Saturday games drop | **Thu 12:00 → Sat 00:00** | Saturday schedule posted "sometime Thursday" (Friday buffer). |
+| Brackets + Sunday games | **Sat 19:00 → Sun 21:00** | Sunday bracket posted Saturday evening, plus next-round games if the team advances. |
+
+Outside those windows (Thu morning, Sat daytime, late Sunday) it falls back to a
+10-minute baseline; Monday–Wednesday it sleeps until the next Thursday.
+
+- **Saturday Evening**: As brackets are finalized, the Sunday game is detected as a "New Game" and reported within ~5 minutes.
+- **Sunday Progress**: If the team wins, the next bracket game is picked up in the next 3-minute cycle.
 - **Score Reporting**: Completed games are "promoted" in the local database and sent as a "Schedule Update" featuring the final score.

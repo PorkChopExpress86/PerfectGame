@@ -1,0 +1,40 @@
+# ERRORS.md — Known pitfalls & how to avoid them
+
+Mistakes and dead-ends already hit in this repo, recorded so they aren't repeated.
+Add an entry whenever you lose time to something non-obvious: **symptom → cause → fix.**
+
+## Daemon keeps running old code after an edit
+- **Symptom:** A code change has no effect; `monitor.log` shows the old behavior.
+- **Cause:** `perfectgame-monitor.service` imports modules once at startup and runs indefinitely.
+- **Fix:** `systemctl --user restart perfectgame-monitor.service` after editing. Confirm the new
+  PID via the `Daemon started (PID ...)` log line.
+
+## "0 games" / "Site may be blocking" while the team clearly has a tournament
+- **Symptom:** `fetch_team_schedule` returns 0 games; log says "No games returned... Site may be
+  blocking or no games are scheduled" — even though there's an event this weekend.
+- **Cause:** The configured `TEAM_URL` (`PGBA/Team/default.aspx`) only renders the most-recent
+  *completed* event's schedule grid. The current weekend's games live on
+  `TournamentSchedule.aspx?event=<id>&Date=...` and `Brackets.aspx?event=<id>` pages. If event-link
+  discovery is disabled in team-URL mode, the scraper never reaches them. The "blocking" text is a
+  generic 0-games message — it also prints when the fetch was HTTP 200 with no current games.
+- **Fix:** Keep event discovery enabled in team-URL mode, scoped to the current event (date filter
+  `[today-2, today+7]`, same-event-id, bracket gated on `current_event_id`). Verify with
+  `.venv/bin/python perfect_game/schedule_monitor.py --dry-run` and look for `-> Discovered:` lines
+  and a non-zero `Total games found`.
+
+## monitor.log looks corrupted / has impossible entries
+- **Symptom:** Interleaved lines that don't match the running daemon — e.g. fetch errors for
+  `Playerprofile.aspx?ID=0000000`, or `Interval change: 10 -> 6660 min` on a Saturday.
+- **Cause:** `schedule_monitor.log()` and the scraper's `_log()` both append to `monitor.log`.
+  Running `pytest` or manual CLI commands writes there too — including daemon unit tests that mock a
+  far-future `next_poll_at` (hence the huge interval) and integration tests using the placeholder
+  `PLAYER_ID=0000000`.
+- **Fix:** Correlate by timestamp/PID against `Daemon started (PID ...)`; ignore lines whose
+  traceback paths contain `tests/..` and anything referencing placeholder IDs.
+
+## Daemon test fails comparing a MagicMock to an int
+- **Symptom:** `test_daemon_*` fails, or the daemon reschedules to a nonsense interval, when
+  `should_poll_now` is mocked.
+- **Cause:** `schedule_daemon._run_check` reads `decision.interval_minutes`. A bare
+  `MagicMock(should_poll=True)` returns a Mock (not an int) for that attribute.
+- **Fix:** Set `interval_minutes=POLL_INTERVAL_MINUTES` (or `HOT_POLL_INTERVAL_MINUTES`) on the mock.

@@ -38,6 +38,25 @@ class TestScraperIntegration:
 
     @responses.activate
     @patch("perfect_game.perfect_game_scraper.random_delay", return_value=0)
+    def test_team_url_mode_does_not_follow_tournament_links(self, mock_delay):
+        """In team-URL mode, only the team page is fetched; links aren't followed."""
+        team_url = "https://www.perfectgame.org/PGBA/Team/default.aspx?orgid=90706&orgteamid=284257&team=1074261&Year=2026"
+        tournament_url = "https://www.perfectgame.org/events/TournamentSchedule.aspx?event=160138&Date=05/16/2026"
+        team_page = """
+        <html><body>
+            <a href="/events/TournamentSchedule.aspx?event=160138&Date=05/16/2026">Schedule</a>
+        </body></html>
+        """
+        # Register the tournament page so a stray crawl would succeed if it happened.
+        responses.add(responses.GET, url=team_url, body=team_page, status=200)
+        responses.add(responses.GET, url=tournament_url, body=team_page, status=200)
+
+        fetch_team_schedule("D1 Athletics", "0000000", team_url=team_url)
+
+        assert [call.request.url for call in responses.calls] == [team_url]
+
+    @responses.activate
+    @patch("perfect_game.perfect_game_scraper.random_delay", return_value=0)
     def test_full_fetch_chain(self, mock_delay):
         """Profile → Team Schedule → parsed games."""
         # Mock player profile page

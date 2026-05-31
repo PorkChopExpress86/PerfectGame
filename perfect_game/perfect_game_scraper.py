@@ -4,7 +4,7 @@ import re
 import sys
 import os
 import time
-from urllib.parse import urljoin
+from urllib.parse import parse_qs, urljoin, urlparse
 import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
@@ -54,14 +54,25 @@ def _parse_schedule_date_for_sort(date_str, now):
     return now
 
 
-def parse_and_filter_schedule(html_content, team_name_filter="D1 Athletics"):
+def _parse_tournament_date_from_url(url):
+    """Return the TournamentSchedule Date query value, accepting non-padded dates."""
+    date_values = parse_qs(urlparse(url).query).get("Date")
+    if not date_values:
+        return None
+    try:
+        return datetime.strptime(date_values[0], "%m/%d/%Y")
+    except ValueError:
+        return None
+
+
+def parse_and_filter_schedule(html_content, team_name_filter="Texas Prospects"):
     soup = BeautifulSoup(html_content, 'html.parser')
     schedule = []
 
     now = datetime.now()
     fourteen_days_ago = now - timedelta(days=14)
 
-    team_aliases = [team_name_filter.lower(), "texas prospects", "d1 athletics", "cavazos"]
+    team_aliases = [team_name_filter.lower(), "texas prospects", "cavazos"]
 
     # --- Path 1: Standard / RadGrid (Profile/Org Page) ---
     rows = soup.find_all(class_='nestedscheduleGridRow')
@@ -260,7 +271,7 @@ def _request_with_retry(session, url, timeout=None):
             if attempt < MAX_RETRIES: time.sleep(RETRY_BASE_DELAY * (2 ** (attempt - 1)))
     raise last_exc
 
-def fetch_team_schedule(team_name_filter="D1 Athletics", player_id="YOUR_PLAYER_ID",
+def fetch_team_schedule(team_name_filter="Texas Prospects", player_id="YOUR_PLAYER_ID",
                         extra_urls=None, team_url=None):
     source = f"team URL {team_url}" if team_url else f"player {player_id}"
     _log(f"Fetching schedule for {source}...")
@@ -279,6 +290,10 @@ def fetch_team_schedule(team_name_filter="D1 Athletics", player_id="YOUR_PLAYER_
 
     try:
         if team_url:
+            # Team-URL mode: start from the given team page. Don't use the player
+            # profile or extra URLs, but DO follow the current weekend's event
+            # schedule/bracket links discovered below (date-scoped) so newly
+            # posted tournament games are detected within the poll interval.
             add_to_queue(team_url)
         else:
             player_url = f"https://www.perfectgame.org/Players/Playerprofile.aspx?ID={player_id}"
@@ -288,17 +303,17 @@ def fetch_team_schedule(team_name_filter="D1 Athletics", player_id="YOUR_PLAYER_
             team_links = soup.find_all('a', href=re.compile(r'team=\d+'))
             for link in team_links:
                 txt = link.get_text().lower()
-                if team_name_filter.lower() in txt or "texas prospects" in txt or "d1 athletics" in txt:
+                if team_name_filter.lower() in txt or "texas prospects" in txt:
                     add_to_queue(urljoin(player_url, link['href']))
                     _log(f"Found matching team link: '{link.get_text().strip()}'")
 
             if not queue and team_links:
                 add_to_queue(urljoin(player_url, team_links[0]['href']))
 
-        if extra_urls:
-            if isinstance(extra_urls, str): extra_urls = [extra_urls]
-            for e_url in extra_urls:
-                add_to_queue(e_url)
+            if extra_urls:
+                if isinstance(extra_urls, str): extra_urls = [extra_urls]
+                for e_url in extra_urls:
+                    add_to_queue(e_url)
 
         # Process the queue with recursion for tournament schedules
         idx = 0
@@ -318,16 +333,18 @@ def fetch_team_schedule(team_name_filter="D1 Athletics", player_id="YOUR_PLAYER_
 
                 # If it's a tournament schedule page, try to apply the date from URL if games are TBD
                 if "TournamentSchedule.aspx" in url:
-                    date_match = re.search(r'Date=(\d{2}/\d{2}/\d{4})', url)
-                    if date_match:
-                        d_str = datetime.strptime(date_match.group(1), "%m/%d/%Y").strftime("%b %d")
+                    tournament_date = _parse_tournament_date_from_url(url)
+                    if tournament_date:
+                        d_str = tournament_date.strftime("%b %d")
                         for ng in new_games:
                             if not ng.get('Date') or ng.get('Date') == 'TBD':
                                 ng['Date'] = d_str
 
                 games.extend(new_games)
 
-                # Discover more tournament schedule or bracket links
+                # Discover the current event's schedule/bracket links. Runs in
+                # team-URL mode too: from the team page we follow only this
+                # weekend's event (date-scoped below), not the whole site.
                 if "orgteamid=" in url or "TournamentSchedule.aspx" in url or "Brackets.aspx" in url:
                     s_soup = BeautifulSoup(resp.text, 'html.parser')
                     # Only follow links with the SAME event ID to avoid crawling the whole site
@@ -338,16 +355,16 @@ def fetch_team_schedule(team_name_filter="D1 Athletics", player_id="YOUR_PLAYER_
                         full_url = full_url.split('#')[0].strip()
                         if full_url not in seen_urls:
                             # Date filtering for schedule pages
-                            d_match = re.search(r'Date=(\d{2}/\d{2}/\d{4})', full_url)
-                            if d_match:
-                                try:
-                                    d_val = datetime.strptime(d_match.group(1), "%m/%d/%Y")
-                                    # Yesterday -2 through Today +7
-                                    if (datetime.now() - timedelta(days=2)) <= d_val <= (datetime.now() + timedelta(days=7)):
-                                        add_to_queue(full_url)
-                                        _log(f"  -> Discovered: {full_url}")
-                                except ValueError: pass
-                            elif "Brackets.aspx" in full_url:
+                            d_val = _parse_tournament_date_from_url(full_url)
+                            if d_val:
+                                # Yesterday -2 through Today +7
+                                if (datetime.now() - timedelta(days=2)) <= d_val <= (datetime.now() + timedelta(days=7)):
+                                    add_to_queue(full_url)
+                                    _log(f"  -> Discovered: {full_url}")
+                            elif "Brackets.aspx" in full_url and current_event_id:
+                                # Only follow the active event's bracket (reached
+                                # from an event page), not every old bracket on
+                                # the team page.
                                 add_to_queue(full_url)
                                 _log(f"  -> Discovered Bracket: {full_url}")
             except Exception as e:
@@ -372,7 +389,7 @@ def fetch_team_schedule(team_name_filter="D1 Athletics", player_id="YOUR_PLAYER_
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Perfect Game Team Schedule Scraper")
-    parser.add_argument("--team", type=str, default="D1 Athletics")
+    parser.add_argument("--team", type=str, default="Texas Prospects")
     parser.add_argument("--player_id", type=str, default="YOUR_PLAYER_ID")
     parser.add_argument("--team-url", type=str, default=None)
     args = parser.parse_args()
