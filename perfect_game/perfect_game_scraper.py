@@ -65,8 +65,25 @@ def _parse_tournament_date_from_url(url):
         return None
 
 
+def _canonicalize_url(url):
+    """Zero-pad the TournamentSchedule Date value so '5/30/2026' and '05/30/2026'
+    dedupe to a single fetch. Touches only the Date value — the rest of the URL
+    (literal slashes, param order, other params) is left byte-for-byte intact."""
+    m = re.search(r'([?&]Date=)(\d{1,2}/\d{1,2}/\d{4})', url)
+    if not m:
+        return url
+    try:
+        d = datetime.strptime(m.group(2), "%m/%d/%Y")
+    except ValueError:
+        return url
+    return url[:m.start(2)] + d.strftime("%m/%d/%Y") + url[m.end(2):]
+
+
 def parse_and_filter_schedule(html_content, team_name_filter="Texas Prospects"):
-    soup = BeautifulSoup(html_content, 'html.parser')
+    # Accept an already-parsed soup to avoid re-parsing the same page (the caller
+    # reuses it for link discovery). Falls back to parsing a raw HTML string.
+    soup = (html_content if isinstance(html_content, BeautifulSoup)
+            else BeautifulSoup(html_content, 'html.parser'))
     schedule = []
 
     now = datetime.now()
@@ -283,7 +300,7 @@ def fetch_team_schedule(team_name_filter="Texas Prospects", player_id="YOUR_PLAY
     queue = []
 
     def add_to_queue(url):
-        u = url.split('#')[0].strip()
+        u = _canonicalize_url(url.split('#')[0].strip())
         if u and u not in seen_urls:
             seen_urls.add(u)
             queue.append(u)
@@ -324,7 +341,8 @@ def fetch_team_schedule(team_name_filter="Texas Prospects", player_id="YOUR_PLAY
                 time.sleep(random_delay())
                 _log(f"GET {url}")
                 resp = _request_with_retry(session, url)
-                new_games = parse_and_filter_schedule(resp.text, team_name_filter)
+                page_soup = BeautifulSoup(resp.text, 'html.parser')
+                new_games = parse_and_filter_schedule(page_soup, team_name_filter)
 
                 # Extract event ID to restrict crawling
                 current_event_id = None
@@ -346,13 +364,13 @@ def fetch_team_schedule(team_name_filter="Texas Prospects", player_id="YOUR_PLAY
                 # team-URL mode too: from the team page we follow only this
                 # weekend's event (date-scoped below), not the whole site.
                 if "orgteamid=" in url or "TournamentSchedule.aspx" in url or "Brackets.aspx" in url:
-                    s_soup = BeautifulSoup(resp.text, 'html.parser')
+                    # Reuse page_soup (already parsed above) instead of re-parsing the page.
                     # Only follow links with the SAME event ID to avoid crawling the whole site
                     pattern = r'(TournamentSchedule|Brackets)\.aspx\?event=' + (current_event_id if current_event_id else r'\d+')
-                    links = s_soup.find_all('a', href=re.compile(pattern))
+                    links = page_soup.find_all('a', href=re.compile(pattern))
                     for l in links:
                         full_url = urljoin(url, l['href'].replace("&amp;", "&"))
-                        full_url = full_url.split('#')[0].strip()
+                        full_url = _canonicalize_url(full_url.split('#')[0].strip())
                         if full_url not in seen_urls:
                             # Date filtering for schedule pages
                             d_val = _parse_tournament_date_from_url(full_url)
