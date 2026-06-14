@@ -5,6 +5,14 @@ A running log of notable changes and decisions, so future sessions have continui
 why, and any follow-up. This is separate from `ERRORS.md` (which tracks pitfalls) and from
 `CLAUDE.md` (which is stable guidance).
 
+## 2026-06-13 — USSSA monitor rewritten and deployed
+
+**USSSA monitor rewritten** (`usssa/usssa_team_monitor.py`) to use dynamic API discovery — no hardcoded event IDs, no Playwright. Uses three plain POST endpoints: `getUpcomingEventsByTeamID` (event discovery), `teamInfoV11` (score detection via `recentGames`), and `getGameCenterContent` (bracket/pool HTML via `gmParams` URL-encoded JSON). First-run silently snapshots; subsequent runs alert on new `gameId`s or bracket hash changes. `usssa_bracket_monitor.py` deleted (superseded). Deployed as `usssa-monitor.service` (5-min polling, auto-starts at boot).
+
+`send_telegram` gained optional `team_url`/`team_name` params so non-PG monitors can link to the correct team page instead of `PLAYER_TEAM_URL`. The USSSA monitor passes `TEAM_PAGE_URL` + `"Texas Prospect (USSSA)"` explicitly.
+
+Both monitors (PG + USSSA) now run continuously; each alerts only when its respective tournament is active. The team plays only one tournament per weekend, so there's no overlap.
+
 ## 2026-05-30
 - **✅ Validated live (22:02 CDT).** The daemon detected the Sunday bracket game
   (`May 31 1:15 PM vs Unknown @ Field 4 @ Doss Park`) as NEW within a 3-min hot-window cycle

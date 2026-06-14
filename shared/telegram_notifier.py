@@ -10,18 +10,23 @@ load_dotenv(os.path.join(ROOT_DIR, ".env"))
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-def send_telegram(header: str, body: str):
+def send_telegram(header: str, body: str, team_url: str = None, team_name: str = None):
     """
     Send a Telegram message using the bot token and chat ID from .env.
     Matches the pattern used in ~/scripts/daily_summary.sh.
+
+    team_url / team_name override the PLAYER_TEAM_URL / PLAYER_TEAM env vars,
+    allowing non-PerfectGame monitors to link to the correct team page.
     """
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("WARNING: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set in .env")
         return
 
     # Add team page link to the body
-    team_url = os.getenv("PLAYER_TEAM_URL", "")
-    team_name = os.getenv("PLAYER_TEAM", "Team Page")
+    if team_url is None:
+        team_url = os.getenv("PLAYER_TEAM_URL", "")
+    if team_name is None:
+        team_name = os.getenv("PLAYER_TEAM", "Team Page")
     if team_url:
         body += f"\n\n🔗 <a href=\"{team_url}\">{team_name}</a>"
 

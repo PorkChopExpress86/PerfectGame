@@ -49,10 +49,32 @@ One cycle flows through these modules; read them together to understand the whol
 
 - **Config & state.** All tunables and paths are centralized in `shared/config.py`, which reads `.env` at import (keys in `.env.example`). Git-ignored runtime state: `team_schedule.json` (source of truth — locked Past + live Upcoming), `monitor.log`, `monitor.pid`, `notification_history.json`.
 
-- **USSSA monitors in `usssa/` are dormant** — intentionally disabled and not deployed. Do not revive them or recreate their systemd units.
+- **USSSA monitor (`usssa/usssa_team_monitor.py`) is live** — deployed as `usssa-monitor.service` (5-min polling). `usssa_bracket_monitor.py` was deleted (superseded). See USSSA section below for commands and architecture.
+
+## Architecture — USSSA monitor
+
+`usssa/usssa_team_monitor.py` — single file, no daemon helper. Runs its own sleep loop.
+
+Three API calls per cycle (all plain `POST https://www.usssa.com/api/?action=<name>`, form-urlencoded body, no Playwright):
+
+1. **`getUpcomingEventsByTeamID`** (`teamID=3313953`) — discovers active/upcoming events. `ID` field = divisionID; `eventId` field = event. Do not swap — `getGameCenterContent` needs them separately.
+2. **`teamInfoV11`** (`teamID=...&page=home&divID=undefined`) — `recentGames` list for score detection. Keyed on `gameId` set stored in `.usssa_monitor_snapshot.json` (never re-alerts on old games). **Do not use `upcomingGames`** — it goes empty once a tournament starts.
+3. **`getGameCenterContent`** — pool play (option `101`) + bracket (option `111`) HTML. Body must be `gmParams=<URL-encoded JSON string>`. Strips `Pub\d+-\d+-D[\d.T:]+` timestamp before hashing to avoid false-positive alerts.
+
+Active event = one whose `[startDate, endDate]` window contains today. First run snapshots silently; all subsequent runs alert on new `gameId`s or bracket hash changes.
+
+Service commands:
+```bash
+systemctl --user restart usssa-monitor.service   # REQUIRED after code edits
+systemctl --user status  usssa-monitor.service
+journalctl --user -u usssa-monitor.service -f
+tail -f usssa_team_monitor.log                   # application log
+.venv/bin/python usssa/usssa_team_monitor.py --once   # one-shot check
+.venv/bin/python usssa/usssa_team_monitor.py --force  # force notification
+```
 
 ## Gotchas
-- After any code change, **restart the service** — the daemon imports modules once at startup.
+- After any code change, **restart the relevant service** — both daemons import modules once at startup (`perfectgame-monitor.service` and `usssa-monitor.service`).
 - `pytest` and manual CLI runs append to the **same `monitor.log`** the daemon uses, so it interleaves test noise (e.g. fetches for the placeholder `PLAYER_ID=0000000`). Don't read that as daemon behavior — correlate by PID/timestamp.
 - Any test that mocks `should_poll_now` must set `interval_minutes` on the mock — the daemon reads it to reschedule.
 - HTTP in tests is mocked with `responses`; the real CLI hits perfectgame.org (429/5xx trigger the scraper's backoff/retry).

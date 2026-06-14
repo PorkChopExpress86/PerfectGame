@@ -3,6 +3,24 @@
 Mistakes and dead-ends already hit in this repo, recorded so they aren't repeated.
 Add an entry whenever you lose time to something non-obvious: **symptom → cause → fix.**
 
+## USSSA `getGameCenterContent` returns `{}` (empty)
+
+- **Symptom:** `fetch_bracket_html` returns `None`; API response is `{}` with no `html` key.
+- **Cause:** The `gmParams` body field must be a **URL-encoded JSON string** (matching what the AngularJS SPA does via `encodeURIComponent(angular.toJson(gmParams))`). Sending the JSON directly as a plain form field or as a nested dict produces an empty response.
+- **Fix:** `body = "gmParams=" + urllib.parse.quote(json.dumps(gm_params))` — quote the entire JSON string, then prefix with `gmParams=`. Do not let `requests` encode it as a nested dict.
+
+## USSSA bracket hash alerts on every poll (timestamp false-positive)
+
+- **Symptom:** Bracket change notification fires every 5 minutes even though the bracket hasn't changed.
+- **Cause:** The bracket HTML contains a volatile publish timestamp like `Pub1-2687788-D6.13T21:58` that changes on every CDN republish, so a naive SHA-256 of the raw HTML changes constantly.
+- **Fix:** Strip the timestamp before hashing: `re.sub(r'Pub\d+-\d+-D[\d.T:]+', '', html)`. This is already done in `_bracket_hash()` in `usssa_team_monitor.py`.
+
+## USSSA `upcomingGames` is empty during/after a tournament
+
+- **Symptom:** Team monitor shows 0 upcoming games on tournament weekend; score changes are never detected.
+- **Cause:** `upcomingGames` in the `teamInfoV11` response goes empty once a tournament begins. Scores appear in `recentGames` (and `completedGames`), not `upcomingGames`.
+- **Fix:** Use `recentGames` for score detection, keyed on `gameId`. Already fixed in `usssa_team_monitor.py`.
+
 ## Daemon keeps running old code after an edit
 - **Symptom:** A code change has no effect; `monitor.log` shows the old behavior.
 - **Cause:** `perfectgame-monitor.service` imports modules once at startup and runs indefinitely.
