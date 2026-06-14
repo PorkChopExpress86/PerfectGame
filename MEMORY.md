@@ -5,6 +5,16 @@ A running log of notable changes and decisions, so future sessions have continui
 why, and any follow-up. This is separate from `ERRORS.md` (which tracks pitfalls) and from
 `CLAUDE.md` (which is stable guidance).
 
+## 2026-06-13 — Scraper perf: single parse per page + URL dedup
+
+Two optimizations in `perfect_game/perfect_game_scraper.py` (commit `430c705`):
+
+1. `parse_and_filter_schedule` now accepts a pre-parsed `BeautifulSoup` object or raw HTML. `fetch_team_schedule` builds one `page_soup` per page and passes it to both `parse_and_filter_schedule` and link discovery — eliminating the redundant re-parse (~58ms/page measured on live 317KB tournament HTML).
+
+2. `_canonicalize_url` zero-pads the `Date` query parameter (e.g. `5/30/2026` → `05/30/2026`) before the dedup gate so padded/non-padded variants collapse to one fetch. Fixes the redundant round-trip flagged as a known-minor in the 2026-05-30 entry below.
+
+Both are behavior-preserving; all 106 tests pass.
+
 ## 2026-06-13 — USSSA monitor rewritten and deployed
 
 **USSSA monitor rewritten** (`usssa/usssa_team_monitor.py`) to use dynamic API discovery — no hardcoded event IDs, no Playwright. Uses three plain POST endpoints: `getUpcomingEventsByTeamID` (event discovery), `teamInfoV11` (score detection via `recentGames`), and `getGameCenterContent` (bracket/pool HTML via `gmParams` URL-encoded JSON). First-run silently snapshots; subsequent runs alert on new `gameId`s or bracket hash changes. `usssa_bracket_monitor.py` deleted (superseded). Deployed as `usssa-monitor.service` (5-min polling, auto-starts at boot).

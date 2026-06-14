@@ -78,3 +78,4 @@ tail -f usssa_team_monitor.log                   # application log
 - `pytest` and manual CLI runs append to the **same `monitor.log`** the daemon uses, so it interleaves test noise (e.g. fetches for the placeholder `PLAYER_ID=0000000`). Don't read that as daemon behavior — correlate by PID/timestamp.
 - Any test that mocks `should_poll_now` must set `interval_minutes` on the mock — the daemon reads it to reschedule.
 - HTTP in tests is mocked with `responses`; the real CLI hits perfectgame.org (429/5xx trigger the scraper's backoff/retry).
+- `parse_and_filter_schedule` accepts either a `BeautifulSoup` object or a raw HTML string. Always pass the already-built soup when you have it — re-parsing the same HTML wastes ~58ms per page.
